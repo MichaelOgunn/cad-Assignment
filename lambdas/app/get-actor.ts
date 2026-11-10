@@ -37,7 +37,7 @@ export const handler = async (
     if (!actorResult.Item) {
       return response(404, { message: `Actor ${actorId} not found` });
     }
-       const actor = toActor(actorResult.Item);
+    const actor = toActor(actorResult.Item);
     if (movieId === undefined) {
       return response(200, { data: actor });
     }
@@ -51,9 +51,9 @@ export const handler = async (
     return response(200, {
       data: { ...actor, roleDescription: roleResult.Item?.roleDescription },
     });
- 
-     } catch (err) {
+
+  } catch (err) {
     console.error("DynamoDB error:", err);
-    return response(500, { message: "Internal server error", error: err });
+    return response(500, { message: "Internal server error" });
   }
 };

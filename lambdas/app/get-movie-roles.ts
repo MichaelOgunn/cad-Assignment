@@ -3,6 +3,7 @@ import { GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import {
   actorKey,
   ddb,
+  isMovieItem,
   isRoleItem,
   movieKey,
   parseId,
@@ -31,30 +32,33 @@ export const handler = async (
       const getResult = await ddb.send(
         new GetCommand({
           TableName: tableName,
-          Key: {PK: movieKey(movieId), SK: actorKey(actorId),}
+          Key: { PK: movieKey(movieId), SK: actorKey(actorId), }
         })
       );
       if (!getResult.Item) {
-        return response(404, { message:`Actor ${actorId} Role not in the movie ${movieId}` });
+        return response(404, { message: `Actor ${actorId} Role not in the movie ${movieId}` });
       }
-      return response(200, { data: [toRole(getResult.Item)]});
+      return response(200, { data: [toRole(getResult.Item)] });
     }
     const queryResult = await ddb.send(
       new QueryCommand({
         TableName: tableName,
         KeyConditionExpression: "PK = :pk",
+
         ExpressionAttributeValues: { ":pk": movieKey(movieId) },
         // ExclusiveStartKey: lastKey,
       })
     );
 
     const resultItems = queryResult.Items ?? [];
+    if (!resultItems.some(isMovieItem)) {
+      return response(404, { message: `Movie ${movieId} not found` });
+    }
+
     return response(200, { data: resultItems.filter(isRoleItem).map(toRole) });
   } catch (err) {
     console.error("DynamoDB error:", err);
-    return response(500, {
-      message: "Internal server error",
-      error: err,
-    });
+    return response(500, { message: "Internal server error" });
+
   }
 };
