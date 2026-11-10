@@ -22,12 +22,14 @@ export const handler = async (
   if (movieId === undefined) {
     return response(400, { message: "movieID must be a positive integer" });
   }
+  // Optional ?actor= filter - must be a positive integer if given.
   const actorParam = event.queryStringParameters?.actor;
   const actorId = parseId(actorParam);
   if (actorParam !== undefined && actorId === undefined) {
     return response(400, { message: "actor must be a positive integer" });
   }
   try {
+    // With ?actor: get the one role item (PK = movie, SK = actor).
     if (actorId !== undefined) {
       const getResult = await ddb.send(
         new GetCommand({
@@ -40,23 +42,25 @@ export const handler = async (
       }
       return response(200, { data: [toRole(getResult.Item)] });
     }
+    // Without ?actor: query every item in the movie's partition.
     const queryResult = await ddb.send(
       new QueryCommand({
         TableName: tableName,
         KeyConditionExpression: "PK = :pk",
-
         ExpressionAttributeValues: { ":pk": movieKey(movieId) },
-        // ExclusiveStartKey: lastKey,
       })
     );
 
+    // No movie item in the partition means the movie doesn't exist -> 404.
     const resultItems = queryResult.Items ?? [];
     if (!resultItems.some(isMovieItem)) {
       return response(404, { message: `Movie ${movieId} not found` });
     }
 
+    // Return only the role items, not the movie item itself.
     return response(200, { data: resultItems.filter(isRoleItem).map(toRole) });
   } catch (err) {
+    // Log the real error, but don't expose it to the client.
     console.error("DynamoDB error:", err);
     return response(500, { message: "Internal server error" });
 

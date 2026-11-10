@@ -50,6 +50,7 @@ export class AppApiStack extends cdk.Stack {
 
     table.grantReadData(getMovieRolesFn);
     table.grantReadData(getActorFn);
+    // POST needs write access, plus read access for the transaction's condition checks.
     table.grantReadWriteData(addMovieRoleFn);
 
     // Sample data, written once when the stack is created.
@@ -88,12 +89,14 @@ export class AppApiStack extends cdk.Stack {
       },
     });
 
+    // Used on the GET routes so they need a valid Cognito token cookie.
     const userAuth: apig.MethodOptions = {
       authorizer: userAuthorizer,
       authorizationType: apig.AuthorizationType.CUSTOM,
     };
     // Routes
     const moviesResource = api.root.addResource('movies');
+    // POST /movies/roles - admin only, needs the x-api-key header.
     moviesResource
       .addResource('roles')
       .addMethod('POST', new apig.LambdaIntegration(addMovieRoleFn), { apiKeyRequired: true });
@@ -106,7 +109,8 @@ export class AppApiStack extends cdk.Stack {
       .addResource('{actorID}')
       .addMethod('GET', new apig.LambdaIntegration(getActorFn), userAuth);
 
-    // Admin API key for POST requests
+    // Admin API key for POST requests.
+    // The usage plan links the key to the dev stage; without that link, every key is rejected.
     const adminApiKey = api.addApiKey('AdminApiKey');
     const adminUsagePlan = api.addUsagePlan('AdminUsagePlan', { name: 'AdminUsagePlan' });
     adminUsagePlan.addApiKey(adminApiKey);

@@ -19,6 +19,7 @@ export const handler = async (
   const body = parseJsonObject(event);
   if (isResponse(body)) return body;
 
+  // Reject a body that doesn't match the Role type (missing, extra or wrong-type fields).
   if (!isValidRolePayload(body)) {
     return response(400, {
       message: "Incorrect type. Must match the Role schema",
@@ -27,6 +28,8 @@ export const handler = async (
   }
   const role = toRole(body);
 
+  // One transaction: the movie must exist, the actor must exist, and the role must be new.
+  // If any check fails, nothing is written.
   try {
     await ddb.send(
       new TransactWriteCommand({
@@ -57,6 +60,8 @@ export const handler = async (
     );
     return response(201, { message: "Role added", data: role });
   } catch (err) {
+    // CancellationReasons are in the same order as TransactItems,
+    // so they show which check failed -> 404 (movie/actor) or 409 (duplicate).
     if ((err as Error).name === "TransactionCanceledException") {
       const [movieCheck, actorCheck, rolePut] =
         (err as TransactionCanceledException).CancellationReasons ?? [];

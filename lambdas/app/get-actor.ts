@@ -21,6 +21,7 @@ export const handler = async (
     return response(400, { message: "actorID must be a positive integer" });
   }
 
+  // Optional ?movie= filter - must be a positive integer if given.
   const movieParam = event.queryStringParameters?.movie;
   const movieId = parseId(movieParam);
   if (movieParam !== undefined && movieId === undefined) {
@@ -38,10 +39,12 @@ export const handler = async (
       return response(404, { message: `Actor ${actorId} not found` });
     }
     const actor = toActor(actorResult.Item);
+    // No movie filter: just return the actor's profile.
     if (movieId === undefined) {
       return response(200, { data: actor });
     }
 
+    // With ?movie: get the role item and add its description to the actor.
     const roleResult = await ddb.send(
       new GetCommand({
         TableName: tableName,
@@ -53,6 +56,7 @@ export const handler = async (
     });
 
   } catch (err) {
+    // Log the real error, but don't expose it to the client.
     console.error("DynamoDB error:", err);
     return response(500, { message: "Internal server error" });
   }
