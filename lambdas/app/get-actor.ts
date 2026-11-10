@@ -3,6 +3,7 @@ import { GetCommand } from "@aws-sdk/lib-dynamodb";
 import {
   actorKey,
   ddb,
+  movieKey,
   parseId,
   tableName,
   toActor,
@@ -36,9 +37,22 @@ export const handler = async (
     if (!actorResult.Item) {
       return response(404, { message: `Actor ${actorId} not found` });
     }
-    const actor = toActor(actorResult.Item);
-    return response(200, { data: actor });
-  } catch (err) {
+       const actor = toActor(actorResult.Item);
+    if (movieId === undefined) {
+      return response(200, { data: actor });
+    }
+
+    const roleResult = await ddb.send(
+      new GetCommand({
+        TableName: tableName,
+        Key: { PK: movieKey(movieId), SK: actorKey(actorId) },
+      })
+    );
+    return response(200, {
+      data: { ...actor, roleDescription: roleResult.Item?.roleDescription },
+    });
+ 
+     } catch (err) {
     console.error("DynamoDB error:", err);
     return response(500, { message: "Internal server error", error: err });
   }
